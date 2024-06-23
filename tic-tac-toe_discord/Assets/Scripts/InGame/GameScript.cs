@@ -1,10 +1,12 @@
 using System.Collections.Generic;
-using System.Linq;
 using TMPro;
 using UnityEngine;
 using UnityEngine.UI;
 using DG.Tweening;
-public class GameScript : MonoBehaviour
+using Photon.Pun;
+using System.Collections;
+using System.Linq;
+public class GameScript : MonoBehaviourPunCallbacks, IPunObservable
 {
     public List<Button> buttonList;
     public TextMeshProUGUI turnDisplay;
@@ -17,28 +19,49 @@ public class GameScript : MonoBehaviour
     private List<GameObject> user2Squares = new List<GameObject>();
     private int previousButtonX = -1;
     private int previousButtonY = -1;
+    private bool isMyTurn = false;
+    private string user1Name = "";
+    private string user2Name = "";
     void Start()
     {
-        // Initialize the buttons and their listeners from the list
+        if (PhotonNetwork.PlayerList.Length == 2)
+        {
+            var player1 = PhotonNetwork.PlayerList[0];
+            var player2 = PhotonNetwork.PlayerList[1];
+            user1Name = player1.NickName;
+            user2Name = player2.NickName;
+            if (PhotonNetwork.IsMasterClient)
+            {
+                currentPlayer = 1;
+                isMyTurn = true;
+                turnDisplay.text = $"{user1Name}のターン";
+            }
+            else
+            {
+                currentPlayer = 2;
+                isMyTurn = false;
+                turnDisplay.text = $"{user2Name}のターン";
+            }
+        }
+
         for (int i = 0; i < 3; i++)
         {
             for (int j = 0; j < 3; j++)
             {
                 int index = i * 3 + j;
                 Button button = buttonList[index];
-                int x = i, y = j;
+                int x = i;
+                int y = j;
                 button.onClick.AddListener(() => OnSquareClicked(x, y));
                 buttons[i, j] = button;
                 squareStatus[i, j] = 0;
             }
         }
-        // Randomly decide the starting player
-        currentPlayer = Random.Range(1, 3);
-        UpdateTurnDisplay();
         UpdateTurnCountDisplay();
     }
     private void OnSquareClicked(int x, int y)
     {
+        if (!isMyTurn) return;
         if (previousButtonX == -1 && previousButtonY == -1)
         {
             previousButtonX = x;
@@ -46,7 +69,7 @@ public class GameScript : MonoBehaviour
         }
         else if (previousButtonX == x && previousButtonY == y)
         {
-            OnSquareConfirmed(x, y);
+            photonView.RPC("OnSquareConfirmed", RpcTarget.All, x, y, currentPlayer);
         }
         else
         {
@@ -54,13 +77,14 @@ public class GameScript : MonoBehaviour
             previousButtonY = y;
         }
     }
-    private void OnSquareConfirmed(int x, int y)
+    [PunRPC]
+    private void OnSquareConfirmed(int x, int y, int player)
     {
         if (squareStatus[x, y] == 0)
         {
-            squareStatus[x, y] = currentPlayer;
-            buttons[x, y].image.color = (currentPlayer == 1) ? Color.blue : Color.green;
-            if (currentPlayer == 1)
+            squareStatus[x, y] = player;
+            buttons[x, y].image.color = (player == 1) ? Color.blue : Color.green;
+            if (player == 1)
             {
                 user1Squares.Add(buttons[x, y].gameObject);
                 if (user1Squares.Count > 3)
@@ -72,10 +96,9 @@ public class GameScript : MonoBehaviour
                     first.GetComponent<Button>().image.color = Color.white;
                     user1Squares.RemoveAt(0);
                 }
-                // If there are 3 squares and it is user1's turn, blink the button
-                if (user1Squares.Count == 3)
+                if (user1Squares.Count == 3 && player == 1)
                 {
-                    BlinkButton(user1Squares[0].GetComponent<Button>(), Color.blue);
+                    BlinkButton(user1Squares[0].GetComponent<Button>(), Color.blue); // 新しい古いボタンを点滅
                 }
             }
             else
@@ -90,19 +113,19 @@ public class GameScript : MonoBehaviour
                     first.GetComponent<Button>().image.color = Color.white;
                     user2Squares.RemoveAt(0);
                 }
-                // If there are 3 squares and it is user2's turn, blink the button
-                if (user2Squares.Count == 3)
+                if (user2Squares.Count == 3 && player == 2)
                 {
-                    BlinkButton(user2Squares[0].GetComponent<Button>(), Color.green);
+                    BlinkButton(user2Squares[0].GetComponent<Button>(), Color.green); // 新しい古いボタンを点滅
                 }
             }
             var winningButtons = CheckWinCondition();
             if (winningButtons.Count > 0)
             {
-                turnDisplay.text = $"ユーザー{currentPlayer}の勝利";
+                turnDisplay.text = $"ユーザー{(player == 1 ? user1Name : user2Name)}の勝利";
                 StopAllBlinking();
                 HighlightWinningButtons(winningButtons);
                 DisableAllButtons();
+                StartCoroutine(ReturnToStartMenu());
             }
             else
             {
@@ -112,9 +135,16 @@ public class GameScript : MonoBehaviour
             previousButtonY = -1;
         }
     }
+    private IEnumerator ReturnToStartMenu()
+    {
+        yield return new WaitForSeconds(5);
+        PhotonNetwork.LeaveRoom();
+        PhotonNetwork.LoadLevel("StartMenuScene");
+    }
+
     private void UpdateTurnDisplay()
     {
-        string turnText = (currentPlayer == 1) ? "ユーザー1のターン" : "ユーザー2のターン";
+        string turnText = (currentPlayer == 1) ? $"{user1Name}のターン" : $"{user2Name}のターン";
         turnDisplay.text = turnText;
     }
     private void UpdateTurnCountDisplay()
@@ -125,9 +155,9 @@ public class GameScript : MonoBehaviour
     {
         turnCount++;
         currentPlayer = (currentPlayer == 1) ? 2 : 1;
+        isMyTurn = (currentPlayer == PhotonNetwork.LocalPlayer.ActorNumber);
         UpdateTurnDisplay();
         UpdateTurnCountDisplay();
-        // Stop previous user's blinking
         if (currentPlayer == 1 && user2Squares.Count == 3)
         {
             StopBlinking(user2Squares[0].GetComponent<Button>(), Color.green);
@@ -136,7 +166,6 @@ public class GameScript : MonoBehaviour
         {
             StopBlinking(user1Squares[0].GetComponent<Button>(), Color.blue);
         }
-        // Start current user's blinking
         if (currentPlayer == 1 && user1Squares.Count == 3)
         {
             BlinkButton(user1Squares[0].GetComponent<Button>(), Color.blue);
@@ -219,6 +248,25 @@ public class GameScript : MonoBehaviour
         foreach (Button btn in winningButtons)
         {
             btn.image.DOColor(Color.yellow, 0.5f).SetLoops(-1, LoopType.Yoyo);
+        }
+    }
+    public void OnPhotonSerializeView(PhotonStream stream, PhotonMessageInfo info)
+    {
+        if (stream.IsWriting)
+        {
+            stream.SendNext(squareStatus);
+            stream.SendNext(currentPlayer);
+            stream.SendNext(turnCount);
+            stream.SendNext(previousButtonX);
+            stream.SendNext(previousButtonY);
+        }
+        else
+        {
+            squareStatus = (int[,])stream.ReceiveNext();
+            currentPlayer = (int)stream.ReceiveNext();
+            turnCount = (int)stream.ReceiveNext();
+            previousButtonX = (int)stream.ReceiveNext();
+            previousButtonY = (int)stream.ReceiveNext();
         }
     }
 }
