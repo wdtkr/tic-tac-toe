@@ -3,7 +3,7 @@ using System.Linq;
 using TMPro;
 using UnityEngine;
 using UnityEngine.UI;
-using DG.Tweening; // DoTweenを使うために必要
+using DG.Tweening;
 public class GameScript : MonoBehaviour
 {
     public List<Button> buttonList;
@@ -65,32 +65,43 @@ public class GameScript : MonoBehaviour
                 user1Squares.Add(buttons[x, y].gameObject);
                 if (user1Squares.Count > 3)
                 {
-                    StopBlinking(user1Squares[0].GetComponent<Button>()); // 既存の点滅を停止
+                    StopBlinking(user1Squares[0].GetComponent<Button>(), Color.blue); // 既存の点滅を停止
                     GameObject first = user1Squares[0];
                     string[] coordinates = first.name.Split('-')[1].ToCharArray().Select(c => c.ToString()).ToArray();
                     squareStatus[int.Parse(coordinates[0]), int.Parse(coordinates[1])] = 0;
                     first.GetComponent<Button>().image.color = Color.white;
                     user1Squares.RemoveAt(0);
                 }
-                BlinkButton(user1Squares[0].GetComponent<Button>()); // 新しい古いボタンを点滅
+                // If there are 3 squares and it is user1's turn, blink the button
+                if (user1Squares.Count == 3)
+                {
+                    BlinkButton(user1Squares[0].GetComponent<Button>(), Color.blue);
+                }
             }
             else
             {
                 user2Squares.Add(buttons[x, y].gameObject);
                 if (user2Squares.Count > 3)
                 {
-                    StopBlinking(user2Squares[0].GetComponent<Button>()); // 既存の点滅を停止
+                    StopBlinking(user2Squares[0].GetComponent<Button>(), Color.green); // 既存の点滅を停止
                     GameObject first = user2Squares[0];
                     string[] coordinates = first.name.Split('-')[1].ToCharArray().Select(c => c.ToString()).ToArray();
                     squareStatus[int.Parse(coordinates[0]), int.Parse(coordinates[1])] = 0;
                     first.GetComponent<Button>().image.color = Color.white;
                     user2Squares.RemoveAt(0);
                 }
-                BlinkButton(user2Squares[0].GetComponent<Button>()); // 新しい古いボタンを点滅
+                // If there are 3 squares and it is user2's turn, blink the button
+                if (user2Squares.Count == 3)
+                {
+                    BlinkButton(user2Squares[0].GetComponent<Button>(), Color.green);
+                }
             }
-            if (CheckWinCondition())
+            var winningButtons = CheckWinCondition();
+            if (winningButtons.Count > 0)
             {
                 turnDisplay.text = $"ユーザー{currentPlayer}の勝利";
+                StopAllBlinking();
+                HighlightWinningButtons(winningButtons);
                 DisableAllButtons();
             }
             else
@@ -116,17 +127,60 @@ public class GameScript : MonoBehaviour
         currentPlayer = (currentPlayer == 1) ? 2 : 1;
         UpdateTurnDisplay();
         UpdateTurnCountDisplay();
+        // Stop previous user's blinking
+        if (currentPlayer == 1 && user2Squares.Count == 3)
+        {
+            StopBlinking(user2Squares[0].GetComponent<Button>(), Color.green);
+        }
+        else if (currentPlayer == 2 && user1Squares.Count == 3)
+        {
+            StopBlinking(user1Squares[0].GetComponent<Button>(), Color.blue);
+        }
+        // Start current user's blinking
+        if (currentPlayer == 1 && user1Squares.Count == 3)
+        {
+            BlinkButton(user1Squares[0].GetComponent<Button>(), Color.blue);
+        }
+        else if (currentPlayer == 2 && user2Squares.Count == 3)
+        {
+            BlinkButton(user2Squares[0].GetComponent<Button>(), Color.green);
+        }
     }
-    private bool CheckWinCondition()
+    private List<Button> CheckWinCondition()
     {
+        List<Button> winningButtons = new List<Button>();
         for (int i = 0; i < 3; i++)
         {
-            if (squareStatus[i, 0] == currentPlayer && squareStatus[i, 1] == currentPlayer && squareStatus[i, 2] == currentPlayer) return true;
-            if (squareStatus[0, i] == currentPlayer && squareStatus[1, i] == currentPlayer && squareStatus[2, i] == currentPlayer) return true;
+            if (squareStatus[i, 0] == currentPlayer && squareStatus[i, 1] == currentPlayer && squareStatus[i, 2] == currentPlayer)
+            {
+                winningButtons.Add(buttons[i, 0]);
+                winningButtons.Add(buttons[i, 1]);
+                winningButtons.Add(buttons[i, 2]);
+                return winningButtons;
+            }
+            if (squareStatus[0, i] == currentPlayer && squareStatus[1, i] == currentPlayer && squareStatus[2, i] == currentPlayer)
+            {
+                winningButtons.Add(buttons[0, i]);
+                winningButtons.Add(buttons[1, i]);
+                winningButtons.Add(buttons[2, i]);
+                return winningButtons;
+            }
         }
-        if (squareStatus[0, 0] == currentPlayer && squareStatus[1, 1] == currentPlayer && squareStatus[2, 2] == currentPlayer) return true;
-        if (squareStatus[0, 2] == currentPlayer && squareStatus[1, 1] == currentPlayer && squareStatus[2, 0] == currentPlayer) return true;
-        return false;
+        if (squareStatus[0, 0] == currentPlayer && squareStatus[1, 1] == currentPlayer && squareStatus[2, 2] == currentPlayer)
+        {
+            winningButtons.Add(buttons[0, 0]);
+            winningButtons.Add(buttons[1, 1]);
+            winningButtons.Add(buttons[2, 2]);
+            return winningButtons;
+        }
+        if (squareStatus[0, 2] == currentPlayer && squareStatus[1, 1] == currentPlayer && squareStatus[2, 0] == currentPlayer)
+        {
+            winningButtons.Add(buttons[0, 2]);
+            winningButtons.Add(buttons[1, 1]);
+            winningButtons.Add(buttons[2, 0]);
+            return winningButtons;
+        }
+        return winningButtons;
     }
     private void DisableAllButtons()
     {
@@ -135,13 +189,36 @@ public class GameScript : MonoBehaviour
             button.interactable = false;
         }
     }
-    private void BlinkButton(Button button)
+    private void BlinkButton(Button button, Color playerColor)
     {
-        button.image.DOColor(Color.yellow, 0.5f).SetLoops(-1, LoopType.Yoyo);
+        button.image.DOColor(Color.white, 0.5f).SetLoops(-1, LoopType.Yoyo).OnStepComplete(() =>
+        {
+            button.image.color = playerColor;
+        });
     }
-    private void StopBlinking(Button button)
+    private void StopBlinking(Button button, Color playerColor)
     {
         button.image.DOKill();
-        button.image.color = (currentPlayer == 1) ? Color.blue : Color.green;
+        button.image.color = playerColor;
+    }
+    private void StopAllBlinking()
+    {
+        foreach (GameObject square in user1Squares)
+        {
+            Button btn = square.GetComponent<Button>();
+            StopBlinking(btn, Color.blue);
+        }
+        foreach (GameObject square in user2Squares)
+        {
+            Button btn = square.GetComponent<Button>();
+            StopBlinking(btn, Color.green);
+        }
+    }
+    private void HighlightWinningButtons(List<Button> winningButtons)
+    {
+        foreach (Button btn in winningButtons)
+        {
+            btn.image.DOColor(Color.yellow, 0.5f).SetLoops(-1, LoopType.Yoyo);
+        }
     }
 }
