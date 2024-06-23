@@ -1,126 +1,135 @@
+using System.Collections.Generic;
+using System.Linq;
+
 using TMPro;
 
 using UnityEngine;
-
+using UnityEngine.UI;
 public class GameScript : MonoBehaviour
 {
-    public GameObject[] squares;  // 9つのSquareオブジェクトを設定する
-    public TextMeshProUGUI turnDisplay;  // ターン表示のテキストオブジェクト
-    private int[,] _board = new int[3, 3];  // ゲーム盤の状態を保持する配列
-    private int _currentTurn;  // 現在のターンのプレイヤー
-    private int _turnCount;  // ターンの合計数
-    private int[] _player1Squares = new int[3];  // ユーザー1が保持するSquareインデックス
-    private int[] _player2Squares = new int[3];  // ユーザー2が保持するSquareインデックス
+    public List<Button> buttonList;
+    public TextMeshProUGUI turnDisplay;
+    public TextMeshProUGUI turnCountDisplay;
+    private int[,] squareStatus = new int[3, 3];
+    private Button[,] buttons = new Button[3, 3];
+    private int currentPlayer = 1; // 1 for user1, 2 for user2
+    private int turnCount = 0;
+    private List<GameObject> user1Squares = new List<GameObject>();
+    private List<GameObject> user2Squares = new List<GameObject>();
+    private int previousButtonX = -1;
+    private int previousButtonY = -1;
     void Start()
     {
-        InitializeGame();
-    }
-    void InitializeGame()
-    {
-        // ゲーム盤を初期化
+        // Initialize the buttons and their listeners from the list
         for (int i = 0; i < 3; i++)
         {
             for (int j = 0; j < 3; j++)
             {
-                _board[i, j] = 0;
+                int index = i * 3 + j;
+                Button button = buttonList[index];
+                int x = i, y = j;
+                button.onClick.AddListener(() => OnSquareClicked(x, y));
+                buttons[i, j] = button;
+                squareStatus[i, j] = 0;
             }
         }
-
-        // ターンを初期化
-        _turnCount = 0;
-        _currentTurn = Random.Range(1, 3);
+        // Randomly decide the starting player
+        currentPlayer = Random.Range(1, 3);
         UpdateTurnDisplay();
-        // Squareインデックスを初期化
-        for (int i = 0; i < 3; i++)
-        {
-            _player1Squares[i] = -1;
-            _player2Squares[i] = -1;
-        }
+        UpdateTurnCountDisplay();
     }
-    void UpdateTurnDisplay()
+    private void OnSquareClicked(int x, int y)
     {
-        if (_currentTurn == 1)
+        if (previousButtonX == -1 && previousButtonY == -1)
         {
-            turnDisplay.text = "ユーザー1のターン";
+            previousButtonX = x;
+            previousButtonY = y;
+        }
+        else if (previousButtonX == x && previousButtonY == y)
+        {
+            OnSquareConfirmed(x, y);
         }
         else
         {
-            turnDisplay.text = "ユーザー2のターン";
+            previousButtonX = x;
+            previousButtonY = y;
         }
     }
-
-    public void OnSquareClicked(int index)
+    private void OnSquareConfirmed(int x, int y)
     {
-        int row = index / 3;
-        int col = index % 3;
-
-        // 状態が0であるSquareのみクリック可能
-        if (_board[row, col] != 0) return;
-
-        // Squareの色を赤に変更
-        squares[index].GetComponent<SpriteRenderer>().color = Color.red;
-
-        // Squareの状態を自分のものに変更する
-        _board[row, col] = _currentTurn;
-
-        // プレイヤーのSquareの管理
-        if (_currentTurn == 1)
+        if (squareStatus[x, y] == 0)
         {
-            ManagePlayerSquares(_player1Squares, index);
+            squareStatus[x, y] = currentPlayer;
+            buttons[x, y].image.color = (currentPlayer == 1) ? Color.blue : Color.green;
+            if (currentPlayer == 1)
+            {
+                user1Squares.Add(buttons[x, y].gameObject);
+                if (user1Squares.Count > 3)
+                {
+                    GameObject first = user1Squares[0];
+                    string[] coordinates = first.name.Split('-')[1].ToCharArray().Select(c => c.ToString()).ToArray();
+                    squareStatus[int.Parse(coordinates[0]), int.Parse(coordinates[1])] = 0;
+                    first.GetComponent<Button>().image.color = Color.white;
+                    user1Squares.RemoveAt(0);
+                }
+            }
+            else
+            {
+                user2Squares.Add(buttons[x, y].gameObject);
+                if (user2Squares.Count > 3)
+                {
+                    GameObject first = user2Squares[0];
+                    string[] coordinates = first.name.Split('-')[1].ToCharArray().Select(c => c.ToString()).ToArray();
+                    squareStatus[int.Parse(coordinates[0]), int.Parse(coordinates[1])] = 0;
+                    first.GetComponent<Button>().image.color = Color.white;
+                    user2Squares.RemoveAt(0);
+                }
+            }
+            if (CheckWinCondition())
+            {
+                turnDisplay.text = $"ユーザー{currentPlayer}の勝利";
+                DisableAllButtons();
+            }
+            else
+            {
+                ChangeTurn();
+            }
+            previousButtonX = -1;
+            previousButtonY = -1;
         }
-        else
-        {
-            ManagePlayerSquares(_player2Squares, index);
-        }
-
-        // 勝利条件のチェック
-        if (CheckVictory())
-        {
-            turnDisplay.text = (_currentTurn == 1) ? "ユーザー1の勝利" : "ユーザー2の勝利";
-            return;
-        }
-
-        // ターンの変更
-        _currentTurn = (_currentTurn == 1) ? 2 : 1;
-        _turnCount++;
+    }
+    private void UpdateTurnDisplay()
+    {
+        string turnText = (currentPlayer == 1) ? "ユーザー1のターン" : "ユーザー2のターン";
+        turnDisplay.text = turnText;
+    }
+    private void UpdateTurnCountDisplay()
+    {
+        turnCountDisplay.text = $"{turnCount}ターン目";
+    }
+    private void ChangeTurn()
+    {
+        turnCount++;
+        currentPlayer = (currentPlayer == 1) ? 2 : 1;
         UpdateTurnDisplay();
+        UpdateTurnCountDisplay();
     }
-    void ManagePlayerSquares(int[] playerSquares, int newSquareIndex)
+    private bool CheckWinCondition()
     {
         for (int i = 0; i < 3; i++)
         {
-            if (playerSquares[i] == -1)
-            {
-                playerSquares[i] = newSquareIndex;
-                return;
-            }
+            if (squareStatus[i, 0] == currentPlayer && squareStatus[i, 1] == currentPlayer && squareStatus[i, 2] == currentPlayer) return true;
+            if (squareStatus[0, i] == currentPlayer && squareStatus[1, i] == currentPlayer && squareStatus[2, i] == currentPlayer) return true;
         }
-        // 最初に設定したSquareの状態を0に戻す
-        int oldestSquareIndex = playerSquares[0];
-        _board[oldestSquareIndex / 3, oldestSquareIndex % 3] = 0;
-        // 配列をシフトして上書き
-        for (int i = 0; i < 2; i++)
-        {
-            playerSquares[i] = playerSquares[i + 1];
-        }
-        playerSquares[2] = newSquareIndex;
-    }
-    bool CheckVictory()
-    {
-        // 縦、横、斜めの勝利条件をチェック
-        for (int i = 0; i < 3; i++)
-        {
-            if ((_board[i, 0] == _currentTurn && _board[i, 1] == _currentTurn && _board[i, 2] == _currentTurn) ||
-                (_board[0, i] == _currentTurn && _board[1, i] == _currentTurn && _board[2, i] == _currentTurn))
-            {
-                return true;
-            }
-        }
-        if ((_board[0, 0] == _currentTurn && _board[1, 1] == _currentTurn && _board[2, 2] == _currentTurn) ||
-            (_board[0, 2] == _currentTurn && _board[1, 1] == _currentTurn && _board[2, 0] == _currentTurn))
-        {
-            return true;
-        }
+        if (squareStatus[0, 0] == currentPlayer && squareStatus[1, 1] == currentPlayer && squareStatus[2, 2] == currentPlayer) return true;
+        if (squareStatus[0, 2] == currentPlayer && squareStatus[1, 1] == currentPlayer && squareStatus[2, 0] == currentPlayer) return true;
         return false;
+    }
+    private void DisableAllButtons()
+    {
+        foreach (Button button in buttons)
+        {
+            button.interactable = false;
+        }
     }
 }
