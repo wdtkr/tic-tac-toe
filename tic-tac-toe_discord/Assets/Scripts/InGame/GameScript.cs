@@ -1,10 +1,9 @@
 using System.Collections.Generic;
 using System.Linq;
-
 using TMPro;
-
 using UnityEngine;
 using UnityEngine.UI;
+using DG.Tweening; // DoTweenを使うために必要
 public class GameScript : MonoBehaviour
 {
     public List<Button> buttonList;
@@ -66,24 +65,28 @@ public class GameScript : MonoBehaviour
                 user1Squares.Add(buttons[x, y].gameObject);
                 if (user1Squares.Count > 3)
                 {
+                    StopBlinking(user1Squares[0].GetComponent<Button>()); // 既存の点滅を停止
                     GameObject first = user1Squares[0];
                     string[] coordinates = first.name.Split('-')[1].ToCharArray().Select(c => c.ToString()).ToArray();
                     squareStatus[int.Parse(coordinates[0]), int.Parse(coordinates[1])] = 0;
                     first.GetComponent<Button>().image.color = Color.white;
                     user1Squares.RemoveAt(0);
                 }
+                BlinkButton(user1Squares[0].GetComponent<Button>()); // 新しい古いボタンを点滅
             }
             else
             {
                 user2Squares.Add(buttons[x, y].gameObject);
                 if (user2Squares.Count > 3)
                 {
+                    StopBlinking(user2Squares[0].GetComponent<Button>()); // 既存の点滅を停止
                     GameObject first = user2Squares[0];
                     string[] coordinates = first.name.Split('-')[1].ToCharArray().Select(c => c.ToString()).ToArray();
                     squareStatus[int.Parse(coordinates[0]), int.Parse(coordinates[1])] = 0;
                     first.GetComponent<Button>().image.color = Color.white;
                     user2Squares.RemoveAt(0);
                 }
+                BlinkButton(user2Squares[0].GetComponent<Button>()); // 新しい古いボタンを点滅
             }
             if (CheckWinCondition())
             {
@@ -131,5 +134,14 @@ public class GameScript : MonoBehaviour
         {
             button.interactable = false;
         }
+    }
+    private void BlinkButton(Button button)
+    {
+        button.image.DOColor(Color.yellow, 0.5f).SetLoops(-1, LoopType.Yoyo);
+    }
+    private void StopBlinking(Button button)
+    {
+        button.image.DOKill();
+        button.image.color = (currentPlayer == 1) ? Color.blue : Color.green;
     }
 }
