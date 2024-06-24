@@ -180,8 +180,6 @@ MonoBehaviour:
   - {fileID: 506153439}
   turnDisplay: {fileID: 1165911669}
   turnCountDisplay: {fileID: 848112591}
-  playerNameText1: {fileID: 1540776469}
-  playerNameText2: {fileID: 646497104}
   opponentLeftUI: {fileID: 81523357}
 --- !u!4 &59849115
 Transform:
@@ -312,7 +310,7 @@ GameObject:
   m_Icon: {fileID: 0}
   m_NavMeshLayer: 0
   m_StaticEditorFlags: 0
-  m_IsActive: 1
+  m_IsActive: 0
 --- !u!224 &145108625
 RectTransform:
   m_ObjectHideFlags: 0
