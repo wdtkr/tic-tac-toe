@@ -12,19 +12,21 @@ public class GameScript : MonoBehaviourPunCallbacks, IPunObservable
     public List<Button> buttonList;
     public TextMeshProUGUI turnDisplay;
     public TextMeshProUGUI turnCountDisplay;
+    public TextMeshProUGUI playerNameText1; // 自身のプレイヤー名の表示用
+    public TextMeshProUGUI playerNameText2; // 相手のプレイヤー名の表示用
+    public GameObject opponentLeftUI; // 相手プレイヤーが退室した際に表示するUI
     private int[,] squareStatus = new int[3, 3];
     private Button[,] buttons = new Button[3, 3];
-    private int currentPlayer = 1; // 1 for user1, 2 for user2
-    private int turnCount = 0;
-    private List<GameObject> user1Squares = new List<GameObject>();
-    private List<GameObject> user2Squares = new List<GameObject>();
+    private int currentPlayer = 1;
+    private int turnCount = 1;
     private bool isMyTurn = false;
+    private bool turnUpdated = false;
     private string user1Name = "";
     private string user2Name = "";
-    private const int NoSlot = -1;
+    private List<GameObject> user1Squares = new List<GameObject>();
+    private List<GameObject> user2Squares = new List<GameObject>();
     void Start()
     {
-        // Initial setup for the players
         SetUpPlayers();
         for (int i = 0; i < 3; i++)
         {
@@ -39,6 +41,7 @@ public class GameScript : MonoBehaviourPunCallbacks, IPunObservable
                 squareStatus[i, j] = 0;
             }
         }
+        UpdatePlayerNameDisplay();
         UpdateTurnCountDisplay();
     }
     private void SetUpPlayers()
@@ -56,7 +59,6 @@ public class GameScript : MonoBehaviourPunCallbacks, IPunObservable
             }
             else
             {
-                // Request to sync initial player information
                 photonView.RPC("RequestSyncInitialPlayer", RpcTarget.MasterClient);
             }
         }
@@ -111,7 +113,14 @@ public class GameScript : MonoBehaviourPunCallbacks, IPunObservable
     {
         currentPlayer = player;
         turnCount = turn;
+        turnUpdated = false;
         UpdateTurnStatus();
+    }
+    public override void OnPlayerLeftRoom(Player otherPlayer)
+    {
+        // 相手が退室した場合に UI 表示およびメニュー画面に戻る準備を開始
+        opponentLeftUI.SetActive(true);
+        StartCoroutine(ReturnToStartMenu());
     }
     private void AddPlayerSquare(int player, int x, int y)
     {
@@ -131,23 +140,21 @@ public class GameScript : MonoBehaviourPunCallbacks, IPunObservable
                 RemoveOldestSquare(user2Squares, Color.green);
             }
         }
-        if (player == currentPlayer) // Only the current player should blink their buttons
-        {
-            UpdateBlinkingButtons();
-        }
+        UpdateBlinkingButtons();
     }
     private void RemoveOldestSquare(List<GameObject> squares, Color playerColor)
     {
         StopBlinking(squares[0].GetComponent<Button>(), playerColor);
-        GameObject first = squares[0];
-        string[] coordinates = first.name.Split('-')[1].ToCharArray().Select(c => c.ToString()).ToArray();
+        GameObject oldestSquare = squares[0];
+        string[] coordinates = oldestSquare.name.Split('-')[1].ToCharArray().Select(c => c.ToString()).ToArray();
         squareStatus[int.Parse(coordinates[0]), int.Parse(coordinates[1])] = 0;
-        first.GetComponent<Button>().image.color = Color.white;
+        oldestSquare.GetComponent<Button>().image.color = Color.white;
         squares.RemoveAt(0);
     }
     private IEnumerator ReturnToStartMenu()
     {
         yield return new WaitForSeconds(5);
+        DOTween.KillAll();
         PhotonNetwork.LeaveRoom();
         PhotonNetwork.LoadLevel("StartMenuScene");
     }
@@ -162,21 +169,19 @@ public class GameScript : MonoBehaviourPunCallbacks, IPunObservable
     }
     private void UpdateTurnStatus()
     {
+        if (turnUpdated) return;
         bool isMasterClientLocalPlayer = PhotonNetwork.LocalPlayer.IsMasterClient;
         isMyTurn = (isMasterClientLocalPlayer && currentPlayer == 1) || (!isMasterClientLocalPlayer && currentPlayer == 2);
         UpdateTurnDisplay();
         UpdateTurnCountDisplay();
-
         UpdateBlinkingButtons();
+        UpdatePlayerNameHighlight();
+        turnUpdated = true;
     }
     private void UpdateBlinkingButtons()
     {
-        List<GameObject> opponentSquares = currentPlayer == 1 ? user2Squares : user1Squares;
+        StopAllBlinking();
         List<GameObject> mySquares = currentPlayer == 1 ? user1Squares : user2Squares;
-        if (opponentSquares.Count == 3)
-        {
-            StopBlinking(opponentSquares[0].GetComponent<Button>(), currentPlayer == 1 ? Color.green : Color.blue);
-        }
         if (mySquares.Count == 3)
         {
             BlinkButton(mySquares[0].GetComponent<Button>(), currentPlayer == 1 ? Color.blue : Color.green);
@@ -227,10 +232,7 @@ public class GameScript : MonoBehaviourPunCallbacks, IPunObservable
     }
     private void BlinkButton(Button button, Color playerColor)
     {
-        button.image.DOColor(Color.white, 0.5f).SetLoops(-1, LoopType.Yoyo).OnStepComplete(() =>
-        {
-            button.image.color = playerColor;
-        });
+        button.image.DOColor(Color.white, 0.5f).SetLoops(-1, LoopType.Yoyo).SetUpdate(UpdateType.Normal, true);
     }
     private void StopBlinking(Button button, Color playerColor)
     {
@@ -254,24 +256,41 @@ public class GameScript : MonoBehaviourPunCallbacks, IPunObservable
     {
         foreach (Button btn in winningButtons)
         {
-            btn.image.DOColor(Color.yellow, 0.5f).SetLoops(-1, LoopType.Yoyo);
+            btn.image.DOColor(Color.yellow, 0.5f).SetLoops(-1, LoopType.Yoyo).SetUpdate(UpdateType.Normal, true);
         }
+    }
+    private void UpdatePlayerNameDisplay()
+    {
+        playerNameText1.text = user1Name;
+        playerNameText2.text = user2Name;
+    }
+    private void UpdatePlayerNameHighlight()
+    {
+        TextMeshProUGUI currentPlayerText = currentPlayer == 1 ? playerNameText1 : playerNameText2;
+        TextMeshProUGUI otherPlayerText = currentPlayer == 1 ? playerNameText2 : playerNameText1;
+        currentPlayerText.DOKill();
+        otherPlayerText.DOKill();
+        currentPlayerText.transform.DOScale(1.2f, 0.5f).SetLoops(-1, LoopType.Yoyo).SetUpdate(UpdateType.Normal, true);
+        currentPlayerText.DOFade(1f, 0.5f).SetLoops(-1, LoopType.Yoyo).SetUpdate(UpdateType.Normal, true);
+        otherPlayerText.transform.DOScale(1f, 0.5f).SetUpdate(UpdateType.Normal, true);
+        otherPlayerText.DOFade(0.5f, 0.5f).SetUpdate(UpdateType.Normal, true);
     }
     public void OnPhotonSerializeView(PhotonStream stream, PhotonMessageInfo info)
     {
         if (stream.IsWriting)
         {
-            stream.SendNext(FlattenArray(squareStatus));  // Send the flattened array
+            stream.SendNext(FlattenArray(squareStatus));
             stream.SendNext(currentPlayer);
             stream.SendNext(turnCount);
         }
         else
         {
             int[] receivedArray = (int[])stream.ReceiveNext();
-            squareStatus = UnflattenArray(receivedArray, 3, 3);  // Convert back to multi-dimensional array
+            squareStatus = UnflattenArray(receivedArray, 3, 3);
             currentPlayer = (int)stream.ReceiveNext();
             turnCount = (int)stream.ReceiveNext();
             UpdateTurnStatus();
+            turnUpdated = true;
         }
     }
     private int[] FlattenArray(int[,] array)
