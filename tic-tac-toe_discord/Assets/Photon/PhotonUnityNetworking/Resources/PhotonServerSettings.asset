@@ -40,6 +40,10 @@ MonoBehaviour:
   - Fire
   - RespawnSpaceship
   - OnSquareConfirmed
+  - AssignInitialPlayer
+  - SyncInitialPlayer
+  - ChangeTurn
+  - RequestSyncInitialPlayer
   DisableAutoOpenWizard: 1
   ShowSettings: 1
   DevRegionSetOnce: 0
