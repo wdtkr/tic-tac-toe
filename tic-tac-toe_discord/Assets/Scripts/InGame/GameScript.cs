@@ -12,8 +12,8 @@ public class GameScript : MonoBehaviourPunCallbacks, IPunObservable
     public List<Button> buttonList;
     public TextMeshProUGUI turnDisplay;
     public TextMeshProUGUI turnCountDisplay;
-    public TextMeshProUGUI playerNameText1; // 自身のプレイヤー名の表示用
-    public TextMeshProUGUI playerNameText2; // 相手のプレイヤー名の表示用
+    // public TextMeshProUGUI playerNameText1; // 自身のプレイヤー名の表示用
+    // public TextMeshProUGUI playerNameText2; // 相手のプレイヤー名の表示用
     public GameObject opponentLeftUI; // 相手プレイヤーが退室した際に表示するUI
     private int[,] squareStatus = new int[3, 3];
     private Button[,] buttons = new Button[3, 3];
@@ -41,7 +41,7 @@ public class GameScript : MonoBehaviourPunCallbacks, IPunObservable
                 squareStatus[i, j] = 0;
             }
         }
-        UpdatePlayerNameDisplay();
+        // UpdatePlayerNameDisplay();
         UpdateTurnCountDisplay();
     }
     private void SetUpPlayers()
@@ -175,7 +175,7 @@ public class GameScript : MonoBehaviourPunCallbacks, IPunObservable
         UpdateTurnDisplay();
         UpdateTurnCountDisplay();
         UpdateBlinkingButtons();
-        UpdatePlayerNameHighlight();
+        // UpdatePlayerNameHighlight();
         turnUpdated = true;
     }
     private void UpdateBlinkingButtons()
@@ -259,22 +259,22 @@ public class GameScript : MonoBehaviourPunCallbacks, IPunObservable
             btn.image.DOColor(Color.yellow, 0.5f).SetLoops(-1, LoopType.Yoyo).SetUpdate(UpdateType.Normal, true);
         }
     }
-    private void UpdatePlayerNameDisplay()
-    {
-        playerNameText1.text = user1Name;
-        playerNameText2.text = user2Name;
-    }
-    private void UpdatePlayerNameHighlight()
-    {
-        TextMeshProUGUI currentPlayerText = currentPlayer == 1 ? playerNameText1 : playerNameText2;
-        TextMeshProUGUI otherPlayerText = currentPlayer == 1 ? playerNameText2 : playerNameText1;
-        currentPlayerText.DOKill();
-        otherPlayerText.DOKill();
-        currentPlayerText.transform.DOScale(1.2f, 0.5f).SetLoops(-1, LoopType.Yoyo).SetUpdate(UpdateType.Normal, true);
-        currentPlayerText.DOFade(1f, 0.5f).SetLoops(-1, LoopType.Yoyo).SetUpdate(UpdateType.Normal, true);
-        otherPlayerText.transform.DOScale(1f, 0.5f).SetUpdate(UpdateType.Normal, true);
-        otherPlayerText.DOFade(0.5f, 0.5f).SetUpdate(UpdateType.Normal, true);
-    }
+    // private void UpdatePlayerNameDisplay()
+    // {
+    //     playerNameText1.text = user1Name;
+    //     playerNameText2.text = user2Name;
+    // }
+    // private void UpdatePlayerNameHighlight()
+    // {
+    //     TextMeshProUGUI currentPlayerText = currentPlayer == 1 ? playerNameText1 : playerNameText2;
+    //     TextMeshProUGUI otherPlayerText = currentPlayer == 1 ? playerNameText2 : playerNameText1;
+    //     currentPlayerText.DOKill();
+    //     otherPlayerText.DOKill();
+    //     currentPlayerText.transform.DOScale(1.2f, 0.5f).SetLoops(-1, LoopType.Yoyo).SetUpdate(UpdateType.Normal, true);
+    //     currentPlayerText.DOFade(1f, 0.5f).SetLoops(-1, LoopType.Yoyo).SetUpdate(UpdateType.Normal, true);
+    //     otherPlayerText.transform.DOScale(1f, 0.5f).SetUpdate(UpdateType.Normal, true);
+    //     otherPlayerText.DOFade(0.5f, 0.5f).SetUpdate(UpdateType.Normal, true);
+    // }
     public void OnPhotonSerializeView(PhotonStream stream, PhotonMessageInfo info)
     {
         if (stream.IsWriting)
