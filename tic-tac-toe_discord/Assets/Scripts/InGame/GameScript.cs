@@ -87,7 +87,7 @@ public class GameScript : MonoBehaviourPunCallbacks, IPunObservable
     {
         if (squareStatus[x, y] != 0) return;
         squareStatus[x, y] = player;
-        buttons[x, y].image.color = (player == 1) ? Color.blue : Color.green;
+        buttons[x, y].image.color = (player == 1) ? Color.cyan : Color.green;
         AddPlayerSquare(player, x, y);
         var winningButtons = CheckWinCondition(player);
         if (winningButtons.Count > 0)
@@ -129,7 +129,7 @@ public class GameScript : MonoBehaviourPunCallbacks, IPunObservable
             user1Squares.Add(buttons[x, y].gameObject);
             if (user1Squares.Count > 3)
             {
-                RemoveOldestSquare(user1Squares, Color.blue);
+                RemoveOldestSquare(user1Squares, Color.cyan);
             }
         }
         else
@@ -162,6 +162,7 @@ public class GameScript : MonoBehaviourPunCallbacks, IPunObservable
     {
         string turnText = (currentPlayer == 1) ? $"{user1Name}のターン" : $"{user2Name}のターン";
         turnDisplay.text = turnText;
+        turnDisplay.color = (currentPlayer == 1) ? Color.cyan : Color.green;
     }
     private void UpdateTurnCountDisplay()
     {
@@ -184,7 +185,7 @@ public class GameScript : MonoBehaviourPunCallbacks, IPunObservable
         List<GameObject> mySquares = currentPlayer == 1 ? user1Squares : user2Squares;
         if (mySquares.Count == 3)
         {
-            BlinkButton(mySquares[0].GetComponent<Button>(), currentPlayer == 1 ? Color.blue : Color.green);
+            BlinkButton(mySquares[0].GetComponent<Button>(), currentPlayer == 1 ? Color.cyan : Color.green);
         }
     }
     private List<Button> CheckWinCondition(int player)
@@ -244,7 +245,7 @@ public class GameScript : MonoBehaviourPunCallbacks, IPunObservable
         foreach (GameObject square in user1Squares)
         {
             Button btn = square.GetComponent<Button>();
-            StopBlinking(btn, Color.blue);
+            StopBlinking(btn, Color.cyan);
         }
         foreach (GameObject square in user2Squares)
         {
