@@ -25,6 +25,12 @@ public class StartMenuScript : MonoBehaviourPunCallbacks
         startButton.interactable = true;
         isAnimating = false;
         DOTween.Kill(startButtonText); // アニメーションを停止して元の状態に戻す
+
+        // Ensure we are not connected to any server
+        if (PhotonNetwork.IsConnected)
+        {
+            PhotonNetwork.Disconnect();
+        }
     }
 
     public void OnStartButtonClicked()
@@ -48,8 +54,7 @@ public class StartMenuScript : MonoBehaviourPunCallbacks
         int textIndex = 0;
 
         // カスタムアニメーションの設定
-        DOTween.To(() => textIndex, x =>
-        {
+        DOTween.To(() => textIndex, x => {
             textIndex = x;
             // テキストを更新する
             startButtonText.text = waitingTexts[textIndex % waitingTexts.Length];
